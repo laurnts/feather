@@ -4,14 +4,20 @@ namespace Laurnts\Feather\Mail;
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
+use Laurnts\Feather\Router\Router;
 
 class Smtp {
     private $mailer;
     private $config;
+    private static $router;
     
     public function __construct() {
         $this->config = SmtpConfig::get();
         $this->initializeMailer();
+    }
+    
+    public static function setRouter(Router $router) {
+        self::$router = $router;
     }
     
     private function initializeMailer(): void {
@@ -152,6 +158,9 @@ class Smtp {
 
 // Handle request if this file is accessed directly
 if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
-    require_once __DIR__ . '/../../../vendor/autoload.php';
+    if (!self::$router) {
+        $projectRoot = dirname(dirname(dirname(dirname(dirname(__DIR__)))));
+        require_once $projectRoot . '/vendor/autoload.php';
+    }
     Smtp::handleRequest();
 } 

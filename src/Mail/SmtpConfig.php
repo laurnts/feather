@@ -2,12 +2,30 @@
 
 namespace Laurnts\Feather\Mail;
 
+use Laurnts\Feather\Router\Router;
+
 class SmtpConfig {
     private static $config = null;
+    private static $router;
+    
+    public static function setRouter(Router $router) {
+        self::$router = $router;
+    }
     
     public static function get(): array {
         if (self::$config === null) {
-            $env = include __DIR__ . '/../../../../env.php';
+            if (!self::$router) {
+                $projectRoot = dirname(dirname(dirname(dirname(dirname(__DIR__)))));
+            } else {
+                $projectRoot = self::$router->getProjectRoot();
+            }
+            
+            $envFile = $projectRoot . '/env.php';
+            if (!file_exists($envFile)) {
+                throw new \Exception('env.php not found in project root');
+            }
+            
+            $env = include $envFile;
             
             if (!isset($env['smtp'])) {
                 throw new \Exception('SMTP configuration not found in env.php');

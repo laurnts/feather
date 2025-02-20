@@ -2,15 +2,22 @@
 
 namespace Laurnts\Feather\Content;
 
+use Laurnts\Feather\Router\Router;
+
 class Article {
     private $metadata;
     private static $cache = [];
     private static $cacheFile = '';
     private static $indexCache = [];
     private static $indexCacheFile = '';
+    private static $router;
     
     public function __construct(array $metadata) {
         $this->metadata = $metadata;
+    }
+    
+    public static function setRouter(Router $router) {
+        self::$router = $router;
     }
     
     /**
@@ -133,8 +140,14 @@ class Article {
         try {
             self::initCache();
             
+            if (!self::$router) {
+                throw new \Exception('Router not set. Call Article::setRouter() first.');
+            }
+            
+            $fullPath = self::$router->getProjectRoot() . '/' . ltrim($directory, '/');
+            
             // Check if we have a valid index cache
-            $dirHash = md5($directory);
+            $dirHash = md5($fullPath);
             if (isset(self::$indexCache[$dirHash]['count'])) {
                 // Verify if any file has been modified
                 $lastCheck = self::$indexCache[$dirHash]['last_check'] ?? 0;
@@ -143,7 +156,7 @@ class Article {
                 }
             }
             
-            $files = glob($directory . '*.php');
+            $files = glob($fullPath . '*.php');
             $count = count($files);
             
             // Cache the count
@@ -165,12 +178,17 @@ class Article {
      */
     public static function getPaginated(string $directory, int $page = 1, int $perPage = 10, array $options = []): array {
         try {
-            error_log("Loading paginated articles from directory: " . $directory);
+            if (!self::$router) {
+                throw new \Exception('Router not set. Call Article::setRouter() first.');
+            }
+            
+            $fullPath = self::$router->getProjectRoot() . '/' . ltrim($directory, '/');
+            error_log("Loading paginated articles from directory: " . $fullPath);
             
             // Get all PHP files in directory
-            $files = glob($directory . '*.php');
+            $files = glob($fullPath . '*.php');
             if (empty($files)) {
-                error_log("No PHP files found in directory: " . $directory);
+                error_log("No PHP files found in directory: " . $fullPath);
                 return [
                     'items' => [],
                     'total' => 0,
@@ -248,12 +266,11 @@ class Article {
                 return $result['items'];
             }
             
-            // Otherwise, get all items (not recommended for large datasets)
+            // Otherwise get all articles
             $result = self::getPaginated($directory, 1, PHP_INT_MAX, $options);
             return $result['items'];
-            
         } catch (\Exception $e) {
-            error_log("Error loading all articles: " . $e->getMessage());
+            error_log("Error getting all articles: " . $e->getMessage());
             return [];
         }
     }
@@ -264,14 +281,13 @@ class Article {
     
     public function formatDate(string $format = 'F j, Y'): string {
         $date = $this->get('date');
-        return $date !== 'Coming soon' ? date($format, strtotime($date)) : 'Coming soon';
+        return $date === 'Coming soon' ? $date : date($format, strtotime($date));
     }
     
     /**
      * Clear the cache (useful after updates)
      */
     public static function clearCache(): void {
-        self::initCache();
         self::$cache = [];
         self::$indexCache = [];
         if (file_exists(self::$cacheFile)) {
