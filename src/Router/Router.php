@@ -19,8 +19,9 @@ class Router {
         // Set global instance
         self::$instance = $this;
         
-        // Set project root as document root
-        $this->projectRoot = $_SERVER['DOCUMENT_ROOT'];
+        // Set project root as current working directory
+        $this->projectRoot = getcwd();
+        error_log("Project root set to: " . $this->projectRoot);
         
         // Get the request path
         $requestUri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
