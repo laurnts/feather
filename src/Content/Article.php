@@ -147,8 +147,13 @@ class Article {
                 throw new \Exception('Router not set. Call Article::setRouter() first.');
             }
             
-            $fullPath = self::$router->getProjectRoot() . '/' . ltrim($directory, '/');
-            error_log("Counting articles in directory: " . $fullPath);
+            // Ensure directory starts from project root
+            $directory = ltrim($directory, '/');
+            $fullPath = self::$router->getProjectRoot() . '/' . $directory;
+            
+            if (defined('DEBUG_MODE') && DEBUG_MODE) {
+                error_log("[Article] Counting articles in: " . $fullPath);
+            }
             
             // Check if we have a valid index cache
             $dirHash = md5($fullPath);
@@ -156,14 +161,12 @@ class Article {
                 // Verify if any file has been modified
                 $lastCheck = self::$indexCache[$dirHash]['last_check'] ?? 0;
                 if (time() - $lastCheck < 300) { // Cache for 5 minutes
-                    error_log("Using cached count for directory: " . $fullPath);
                     return self::$indexCache[$dirHash]['count'];
                 }
             }
             
             $files = glob($fullPath . '*.php');
             $count = count($files);
-            error_log("Found {$count} files in directory: " . $fullPath);
             
             // Cache the count
             self::$indexCache[$dirHash] = [
@@ -174,7 +177,7 @@ class Article {
             
             return $count;
         } catch (\Exception $e) {
-            error_log("Error getting article count: " . $e->getMessage());
+            error_log("[Article] ERROR: Getting article count: " . $e->getMessage());
             return 0;
         }
     }
@@ -190,18 +193,18 @@ class Article {
             
             // Ensure directory starts from project root
             $directory = ltrim($directory, '/');
-            if (strpos($directory, self::$router->getProjectRoot()) === 0) {
-                $fullPath = $directory;
-            } else {
-                $fullPath = self::$router->getProjectRoot() . '/' . $directory;
-            }
+            $fullPath = self::$router->getProjectRoot() . '/' . $directory;
             
-            error_log("Loading paginated articles from directory: " . $fullPath);
+            if (defined('DEBUG_MODE') && DEBUG_MODE) {
+                error_log("[Article] Loading articles from: " . $fullPath);
+            }
             
             // Get all PHP files in directory
             $files = glob($fullPath . '*.php');
             if (empty($files)) {
-                error_log("No PHP files found in directory: " . $fullPath);
+                if (defined('DEBUG_MODE') && DEBUG_MODE) {
+                    error_log("[Article] No articles found in: " . basename($directory));
+                }
                 return [
                     'items' => [],
                     'total' => 0,

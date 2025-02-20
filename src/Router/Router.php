@@ -21,28 +21,31 @@ class Router {
         
         // Store project root
         $this->projectRoot = rtrim($projectRoot, '/');
-        error_log("Project root set to: " . $this->projectRoot);
         
-        // Get the script path relative to document root
-        $scriptName = $_SERVER['SCRIPT_NAME'];
-        $scriptDir = dirname($scriptName);
+        // Detect base path by comparing document root with project root
+        $docRoot = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+        $relativePath = str_replace($docRoot, '', $this->projectRoot);
+        $this->basePath = $relativePath;
         
-        // Set development path if in subdirectory
-        $this->devPath = ($scriptDir !== '/' && $scriptDir !== '\\') ? $scriptDir : '';
-        error_log("Dev path set to: " . $this->devPath);
+        if (defined('DEBUG_MODE') && DEBUG_MODE) {
+            error_log("[Router] Document Root: " . $docRoot);
+            error_log("[Router] Project Root: " . $this->projectRoot);
+            error_log("[Router] Base Path: " . $this->basePath);
+        }
         
         // Get the request path
         $requestUri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
         
-        // Clean the request path
-        $this->request = trim(str_replace($this->devPath, '', $requestUri), '/');
+        // Clean the request path - remove base URL if present
+        $this->request = trim(str_replace($this->basePath, '', $requestUri), '/');
         if (empty($this->request)) {
             $this->request = 'home';
         }
-        error_log("Request path set to: " . $this->request);
         
-        // Set base path same as devPath
-        $this->basePath = $this->devPath;
+        if (defined('DEBUG_MODE') && DEBUG_MODE) {
+            error_log("[Router] Request URI: " . $requestUri);
+            error_log("[Router] Cleaned Request: " . $this->request);
+        }
         
         // Set default page configuration
         $this->pageConfig = [
@@ -82,7 +85,9 @@ class Router {
         
         // Try to load page config
         $pagePath = $this->projectRoot . '/pages/' . $page . '.php';
-        error_log("Loading page config from: " . $pagePath);
+        if (defined('DEBUG_MODE') && DEBUG_MODE) {
+            error_log("[Router] Loading config from: " . $pagePath);
+        }
         
         if (file_exists($pagePath)) {
             // Load page configuration
@@ -99,17 +104,23 @@ class Router {
     public function dispatch() {
         // Build the full page path
         $pagePath = $this->projectRoot . '/pages/' . $this->request . '.php';
-        error_log("Looking for page at: " . $pagePath);
+        if (defined('DEBUG_MODE') && DEBUG_MODE) {
+            error_log("[Router] Looking for page: " . $pagePath);
+        }
         
         // If direct file not found, try as directory with index.php
         if (!file_exists($pagePath)) {
             $pagePath = $this->projectRoot . '/pages/' . $this->request . '/index.php';
-            error_log("Not found, trying: " . $pagePath);
+            if (defined('DEBUG_MODE') && DEBUG_MODE) {
+                error_log("[Router] Trying alternate path: " . $pagePath);
+            }
         }
         
         // If found, load config first then render
         if (file_exists($pagePath)) {
-            error_log("Found page at: " . $pagePath);
+            if (defined('DEBUG_MODE') && DEBUG_MODE) {
+                error_log("[Router] Found page at: " . $pagePath);
+            }
             // Load page configuration first
             ob_start();
             require $pagePath;
@@ -122,7 +133,7 @@ class Router {
             return;
         }
         
-        error_log("Page not found at: " . $pagePath);
+        error_log("[Router] ERROR: Page not found: " . $pagePath);
         
         // If not found, show 404
         if ($this->notFoundCallback) {

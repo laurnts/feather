@@ -119,23 +119,39 @@ class Smtp {
     }
     
     public static function handleRequest(): void {
+        if (!self::$router) {
+            error_log("[Smtp] ERROR: Router not set. Call Smtp::setRouter() first.");
+            self::jsonResponse('error', 'Mail system not properly configured');
+            return;
+        }
+
         // Check if it's a POST request
         if (!$_POST) {
+            error_log("[Smtp] ERROR: Invalid request method - expected POST");
             self::jsonResponse('error', 'Invalid request method');
+            return;
         }
         
         // Check if it's an AJAX request
         if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || 
             strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) != 'xmlhttprequest') {
+            error_log("[Smtp] ERROR: Invalid request - not AJAX");
             self::jsonResponse('error', 'Invalid request method');
+            return;
         }
         
         // Check required fields
         if (!isset($_POST["userName"]) || !isset($_POST["userEmail"]) || !isset($_POST["userMessage"])) {
+            error_log("[Smtp] ERROR: Missing required fields");
             self::jsonResponse('error', 'All fields are required');
+            return;
         }
         
         try {
+            if (defined('DEBUG_MODE') && DEBUG_MODE) {
+                error_log("[Smtp] Processing mail request from: " . $_POST["userEmail"]);
+            }
+            
             $smtp = new self();
             $success = $smtp->send(
                 $_POST["userName"],
@@ -143,9 +159,14 @@ class Smtp {
                 $_POST["userMessage"]
             );
             
+            if (defined('DEBUG_MODE') && DEBUG_MODE) {
+                error_log("[Smtp] Mail sent successfully");
+            }
+            
             self::jsonResponse('message', 'Thank you for your message! We will get back to you soon.');
             
         } catch (\Exception $e) {
+            error_log("[Smtp] ERROR: " . $e->getMessage());
             self::jsonResponse('error', $e->getMessage());
         }
     }
