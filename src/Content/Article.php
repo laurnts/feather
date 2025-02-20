@@ -3,6 +3,7 @@
 namespace Laurnts\Feather\Content;
 
 use Laurnts\Feather\Router\Router;
+use Psr\Log\LoggerInterface;
 
 class Article {
     private $metadata;
@@ -66,21 +67,27 @@ class Article {
         // Extract article data
         if (preg_match('/\$article\s*=\s*\[(.*?)\];/s', $content, $matches)) {
             $articleStr = $matches[1];
+            error_log("Found article data: " . $articleStr);
             if (preg_match_all("/'([^']+)'\s*=>\s*'([^']+)'/", $articleStr, $pairs, PREG_SET_ORDER)) {
                 foreach ($pairs as $pair) {
                     $metadata[$pair[1]] = $pair[2];
                 }
             }
+        } else {
+            error_log("No article data found in content");
         }
         
         // Extract page config data
         if (preg_match('/setPageConfig\(\[(.*?)\]\)/s', $content, $matches)) {
             $configStr = $matches[1];
+            error_log("Found page config: " . $configStr);
             if (preg_match_all("/'([^']+)'\s*=>\s*'([^']+)'/", $configStr, $pairs, PREG_SET_ORDER)) {
                 foreach ($pairs as $pair) {
                     $metadata['page_' . $pair[1]] = $pair[2];
                 }
             }
+        } else {
+            error_log("No page config found in content");
         }
         
         return $metadata;
@@ -90,10 +97,13 @@ class Article {
         try {
             self::initCache();
             
+            error_log("Getting metadata for file: " . $filepath);
+            
             // Check if cached version is still valid
             $mtime = filemtime($filepath);
             if (isset(self::$cache[$filepath]['time']) && 
                 self::$cache[$filepath]['time'] === $mtime) {
+                error_log("Using cached metadata for: " . $filepath);
                 return self::$cache[$filepath]['data'];
             }
             
@@ -104,9 +114,11 @@ class Article {
                 return null;
             }
             
+            error_log("File content length: " . strlen($content));
             $metadata = self::extractMetadata($content);
             
             if (!empty($metadata)) {
+                error_log("Found metadata: " . json_encode($metadata));
                 self::$cache[$filepath] = [
                     'time' => $mtime,
                     'data' => $metadata
@@ -136,6 +148,7 @@ class Article {
             }
             
             $fullPath = self::$router->getProjectRoot() . '/' . ltrim($directory, '/');
+            error_log("Counting articles in directory: " . $fullPath);
             
             // Check if we have a valid index cache
             $dirHash = md5($fullPath);
@@ -143,12 +156,14 @@ class Article {
                 // Verify if any file has been modified
                 $lastCheck = self::$indexCache[$dirHash]['last_check'] ?? 0;
                 if (time() - $lastCheck < 300) { // Cache for 5 minutes
+                    error_log("Using cached count for directory: " . $fullPath);
                     return self::$indexCache[$dirHash]['count'];
                 }
             }
             
             $files = glob($fullPath . '*.php');
             $count = count($files);
+            error_log("Found {$count} files in directory: " . $fullPath);
             
             // Cache the count
             self::$indexCache[$dirHash] = [
@@ -189,6 +204,8 @@ class Article {
                 ];
             }
             
+            error_log("Found files: " . json_encode($files));
+            
             // Sort files by modification time if needed
             if (empty($options['skip_sort'])) {
                 usort($files, function($a, $b) {
@@ -204,6 +221,7 @@ class Article {
             
             // Get files for current page
             $pageFiles = array_slice($files, $offset, $perPage);
+            error_log("Processing page files: " . json_encode($pageFiles));
             
             $items = [];
             foreach ($pageFiles as $file) {
@@ -213,6 +231,8 @@ class Article {
                     $items[] = new self($metadata);
                 }
             }
+            
+            error_log("Found " . count($items) . " items with metadata");
             
             // Sort items by date
             usort($items, function($a, $b) {
