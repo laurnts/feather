@@ -15,20 +15,21 @@ class Router {
     private $layout;
     private $projectRoot;
     
-    public function __construct() {
+    public function __construct(string $projectRoot) {
         // Set global instance
         self::$instance = $this;
+        
+        // Store project root
+        $this->projectRoot = rtrim($projectRoot, '/');
+        error_log("Project root set to: " . $this->projectRoot);
         
         // Get the script path relative to document root
         $scriptName = $_SERVER['SCRIPT_NAME'];
         $scriptDir = dirname($scriptName);
         
-        // Set project root as the directory containing index.php
-        $this->projectRoot = dirname($_SERVER['SCRIPT_FILENAME']);
-        error_log("Project root set to: " . $this->projectRoot);
-        
         // Set development path if in subdirectory
         $this->devPath = ($scriptDir !== '/' && $scriptDir !== '\\') ? $scriptDir : '';
+        error_log("Dev path set to: " . $this->devPath);
         
         // Get the request path
         $requestUri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
@@ -38,6 +39,7 @@ class Router {
         if (empty($this->request)) {
             $this->request = 'home';
         }
+        error_log("Request path set to: " . $this->request);
         
         // Set base path same as devPath
         $this->basePath = $this->devPath;
@@ -80,6 +82,8 @@ class Router {
         
         // Try to load page config
         $pagePath = $this->projectRoot . '/pages/' . $page . '.php';
+        error_log("Loading page config from: " . $pagePath);
+        
         if (file_exists($pagePath)) {
             // Load page configuration
             ob_start();
