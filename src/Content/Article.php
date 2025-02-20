@@ -97,21 +97,12 @@ class Article {
                 return self::$cache[$filepath]['data'];
             }
             
-            // Read file content up to getPageConfig
-            $content = '';
-            $handle = fopen($filepath, 'r');
-            if (!$handle) {
-                error_log("Could not open file: " . $filepath);
+            // Read file content
+            $content = file_get_contents($filepath);
+            if (!$content) {
+                error_log("Could not read file: " . $filepath);
                 return null;
             }
-            
-            while (($line = fgets($handle)) !== false) {
-                $content .= $line;
-                if (strpos($line, '$page_config = $router->getPageConfig();') !== false) {
-                    break;
-                }
-            }
-            fclose($handle);
             
             $metadata = self::extractMetadata($content);
             
