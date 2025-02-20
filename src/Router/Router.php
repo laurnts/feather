@@ -72,8 +72,23 @@ class Router {
         $this->pageConfig = array_merge($this->pageConfig, $config);
     }
     
-    public function getPageConfig() {
-        return $this->pageConfig;
+    public function getPageConfig($page = null) {
+        if ($page === null) {
+            return $this->pageConfig;
+        }
+        
+        // Try to load page config
+        $pagePath = $this->projectRoot . '/pages/' . $page . '.php';
+        if (file_exists($pagePath)) {
+            // Load page configuration
+            ob_start();
+            require $pagePath;
+            ob_get_clean();
+            
+            return $this->pageConfig;
+        }
+        
+        return null;
     }
     
     public function dispatch() {
@@ -112,6 +127,10 @@ class Router {
     
     public function getCurrentPage() {
         return $this->request;
+    }
+    
+    public function isCurrentPage($page) {
+        return $this->request === $page;
     }
     
     public function setNotFound($callback) {

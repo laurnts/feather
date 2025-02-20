@@ -16,7 +16,7 @@ class MenuHandler {
     }
     
     private function scanPages() {
-        $pagesDir = __DIR__ . '/../../pages/';
+        $pagesDir = $this->router->getProjectRoot() . '/pages/';
         $files = glob($pagesDir . '*.php');
         
         foreach ($files as $file) {
@@ -51,7 +51,7 @@ class MenuHandler {
     
     public function getMenuItems() {
         $menu_items = [];
-        $pages_dir = __DIR__ . '/../../pages/';
+        $pages_dir = $this->router->getProjectRoot() . '/pages/';
         $files = glob($pages_dir . '*.php');
         
         foreach ($files as $file) {
@@ -84,7 +84,7 @@ class MenuHandler {
         
         // Get menu_order from each page's config
         foreach ($items as $page => $data) {
-            $pageFile = __DIR__ . '/../../pages/' . $page . '.php';
+            $pageFile = $this->router->getProjectRoot() . '/pages/' . $page . '.php';
             if (file_exists($pageFile)) {
                 $content = file_get_contents($pageFile);
                 if (preg_match("/menu_order'\s*=>\s*(\d+)/", $content, $matches)) {
