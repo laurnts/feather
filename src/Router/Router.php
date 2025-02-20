@@ -13,10 +13,14 @@ class Router {
     private static $instance = null;
     private $devPath;
     private $layout;
+    private $projectRoot;
     
     public function __construct() {
         // Set global instance
         self::$instance = $this;
+        
+        // Set project root as 2 levels up from vendor/laurnts/feather
+        $this->projectRoot = dirname(dirname(dirname(dirname(dirname(__DIR__)))));
         
         // Get the request path
         $requestUri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
@@ -74,11 +78,11 @@ class Router {
     
     public function dispatch() {
         // Build the full page path
-        $pagePath = __DIR__ . '/../../pages/' . $this->request . '.php';
+        $pagePath = $this->projectRoot . '/pages/' . $this->request . '.php';
         
         // If direct file not found, try as directory with index.php
         if (!file_exists($pagePath)) {
-            $pagePath = __DIR__ . '/../../pages/' . $this->request . '/index.php';
+            $pagePath = $this->projectRoot . '/pages/' . $this->request . '/index.php';
         }
         
         // If found, load config first then render
@@ -116,5 +120,9 @@ class Router {
     
     public function getDevPath() {
         return $this->devPath;
+    }
+    
+    public function getProjectRoot() {
+        return $this->projectRoot;
     }
 } 
