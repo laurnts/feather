@@ -45,7 +45,7 @@ class Router {
             'meta_keywords' => '',
             'current_page' => $this->request,
             'base_url' => $this->basePath,
-            'menu_order' => 999
+            'menu_order' => 0
         ];
         
         // Initialize layout

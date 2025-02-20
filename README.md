@@ -1,4 +1,4 @@
-# Feather
+# Feather Framework
 
 A lightweight PHP framework for building modern websites with clean architecture and modular structure.
 
