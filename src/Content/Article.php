@@ -188,7 +188,14 @@ class Article {
                 throw new \Exception('Router not set. Call Article::setRouter() first.');
             }
             
-            $fullPath = self::$router->getProjectRoot() . '/' . ltrim($directory, '/');
+            // Ensure directory starts from project root
+            $directory = ltrim($directory, '/');
+            if (strpos($directory, self::$router->getProjectRoot()) === 0) {
+                $fullPath = $directory;
+            } else {
+                $fullPath = self::$router->getProjectRoot() . '/' . $directory;
+            }
+            
             error_log("Loading paginated articles from directory: " . $fullPath);
             
             // Get all PHP files in directory
