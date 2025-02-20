@@ -19,8 +19,8 @@ class Router {
         // Set global instance
         self::$instance = $this;
         
-        // Set project root as 2 levels up from vendor/laurnts/feather
-        $this->projectRoot = dirname(dirname(dirname(dirname(dirname(__DIR__)))));
+        // Set project root as document root
+        $this->projectRoot = $_SERVER['DOCUMENT_ROOT'];
         
         // Get the request path
         $requestUri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
