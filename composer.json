@@ -1,5 +1,5 @@
 {
-    "name": "laurnts/feather-framework",
+    "name": "laurnts/feather",
     "description": "A lightweight PHP framework for building modern websites with clean architecture and modular structure",
     "type": "library",
     "license": "MIT",

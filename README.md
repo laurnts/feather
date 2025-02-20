@@ -1,4 +1,4 @@
-# Feather Framework
+# Feather
 
 A lightweight PHP framework for building modern websites with clean architecture and modular structure.
 
@@ -20,7 +20,7 @@ A lightweight PHP framework for building modern websites with clean architecture
 ## Installation
 
 ```bash
-composer require laurnts/feather-framework
+composer require laurnts/feather
 ```
 
 ## Basic Usage
