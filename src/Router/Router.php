@@ -19,19 +19,19 @@ class Router {
         // Set global instance
         self::$instance = $this;
         
-        // Set project root as current working directory
-        $this->projectRoot = getcwd();
-        error_log("Project root set to: " . $this->projectRoot);
-        
-        // Get the request path
-        $requestUri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
-        
         // Get the script path relative to document root
         $scriptName = $_SERVER['SCRIPT_NAME'];
         $scriptDir = dirname($scriptName);
         
+        // Set project root as the directory containing index.php
+        $this->projectRoot = dirname($_SERVER['SCRIPT_FILENAME']);
+        error_log("Project root set to: " . $this->projectRoot);
+        
         // Set development path if in subdirectory
         $this->devPath = ($scriptDir !== '/' && $scriptDir !== '\\') ? $scriptDir : '';
+        
+        // Get the request path
+        $requestUri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
         
         // Clean the request path
         $this->request = trim(str_replace($this->devPath, '', $requestUri), '/');
@@ -95,14 +95,17 @@ class Router {
     public function dispatch() {
         // Build the full page path
         $pagePath = $this->projectRoot . '/pages/' . $this->request . '.php';
+        error_log("Looking for page at: " . $pagePath);
         
         // If direct file not found, try as directory with index.php
         if (!file_exists($pagePath)) {
             $pagePath = $this->projectRoot . '/pages/' . $this->request . '/index.php';
+            error_log("Not found, trying: " . $pagePath);
         }
         
         // If found, load config first then render
         if (file_exists($pagePath)) {
+            error_log("Found page at: " . $pagePath);
             // Load page configuration first
             ob_start();
             require $pagePath;
@@ -114,6 +117,8 @@ class Router {
             });
             return;
         }
+        
+        error_log("Page not found at: " . $pagePath);
         
         // If not found, show 404
         if ($this->notFoundCallback) {
