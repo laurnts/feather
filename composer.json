@@ -1,0 +1,23 @@
+{
+    "name": "laurnts/feather-framework",
+    "description": "A lightweight PHP framework for building modern websites with clean architecture and modular structure",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Laurent S",
+            "email": "info@sheleadsplus.org"
+        }
+    ],
+    "require": {
+        "php": ">=7.4",
+        "phpmailer/phpmailer": "^6.9"
+    },
+    "autoload": {
+        "psr-4": {
+            "Laurnts\\Feather\\": "src/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+} 
