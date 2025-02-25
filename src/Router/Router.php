@@ -14,6 +14,7 @@ class Router {
     private $devPath;
     private $layout;
     private $projectRoot;
+    private $staticExtensions = ['js', 'css', 'jpg', 'jpeg', 'png', 'gif', 'svg', 'woff', 'woff2', 'ttf', 'eot', 'ico', 'map'];
     
     public function __construct(string $projectRoot) {
         // Set global instance
@@ -96,7 +97,27 @@ class Router {
         return null;
     }
     
+    /**
+     * Check if the request is for a static file
+     * 
+     * @return bool
+     */
+    private function isStaticAsset() {
+        $pathInfo = pathinfo($this->request);
+        return isset($pathInfo['extension']) && in_array(strtolower($pathInfo['extension']), $this->staticExtensions);
+    }
+    
     public function dispatch() {
+        // If this is a static asset request, don't try to render a page
+        if ($this->isStaticAsset()) {
+            // For static assets, let the web server handle it directly
+            // No need to do anything here, as the router won't be involved for static files in production
+            if (defined('DEBUG_MODE') && DEBUG_MODE) {
+                error_log("Static asset request detected: " . $this->request . " - letting web server handle it");
+            }
+            return;
+        }
+        
         // Build the full page path
         $pagePath = $this->projectRoot . '/pages/' . $this->request . '.php';
         error_log("Looking for page at: " . $pagePath);
@@ -119,6 +140,7 @@ class Router {
             $this->layout->render(function() use ($pagePath) {
                 require $pagePath;
             });
+            
             return;
         }
         
