@@ -17,6 +17,10 @@ class MenuHandler {
     
     private function scanPages() {
         $pagesDir = $this->router->getProjectRoot() . '/pages/';
+        if (defined('DEBUG_MODE') && DEBUG_MODE) {
+            error_log("[MenuHandler] Scanning pages in: " . $pagesDir);
+        }
+        
         $files = glob($pagesDir . '*.php');
         
         foreach ($files as $file) {
@@ -46,6 +50,10 @@ class MenuHandler {
                 'url' => $this->router->getUrl($filename === 'home' ? '' : $filename),
                 'active' => $this->currentPage === $filename
             ];
+            
+            if (defined('DEBUG_MODE') && DEBUG_MODE) {
+                error_log("[MenuHandler] Added page: " . $filename);
+            }
         }
     }
     

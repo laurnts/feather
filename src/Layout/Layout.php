@@ -15,9 +15,6 @@ class Layout {
     /** @var Layout */
     private static $instance = null;
     
-    /** @var string */
-    private $projectRoot;
-    
     /**
      * Constructor
      * 
@@ -27,9 +24,6 @@ class Layout {
         $this->router = $router;
         $this->menuHandler = new MenuHandler($router);
         self::$instance = $this;
-        
-        // Set project root as 2 levels up from vendor/laurnts/feather
-        $this->projectRoot = dirname(dirname(dirname(dirname(dirname(__DIR__)))));
     }
     
     /**
@@ -63,7 +57,7 @@ class Layout {
         echo '<html lang="en">' . PHP_EOL;
         
         // Include header (contains head tag and initial elements)
-        require $this->projectRoot . '/includes/header.php';
+        require $this->router->getProjectRoot() . '/includes/header.php';
         
         // Open body tag
         echo '<body>' . PHP_EOL;
@@ -73,13 +67,13 @@ class Layout {
         echo '<div class="page" id="top">' . PHP_EOL;
         
         // Include navigation
-        require $this->projectRoot . '/includes/navigation.php';
+        require $this->router->getProjectRoot() . '/includes/navigation.php';
         
         // Render main content
         call_user_func($contentCallback);
         
         // Include footer
-        require $this->projectRoot . '/includes/footer.php';
+        require $this->router->getProjectRoot() . '/includes/footer.php';
         
         // Close page structure
         echo '</div>' . PHP_EOL; // close .page
