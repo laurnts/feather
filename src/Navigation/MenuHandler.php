@@ -31,22 +31,10 @@ class MenuHandler {
                 continue;
             }
             
-            // Get page metadata
-            $content = file_get_contents($file);
-            
-            // Get title from meta tags
-            preg_match('/<meta name="title" content="(.*?)">/i', $content, $titleMatches);
-            preg_match('/<title>(.*?)<\/title>/i', $content, $htmlTitleMatches);
-            
-            // Get description from meta tags
-            preg_match('/<meta name="description" content="(.*?)">/i', $content, $descMatches);
-            
-            $title = isset($titleMatches[1]) ? $titleMatches[1] : 
-                    (isset($htmlTitleMatches[1]) ? $htmlTitleMatches[1] : ucfirst($filename));
-            
+            // Initialize with basic information first
             $this->pages[$filename] = [
-                'title' => $title,
-                'description' => isset($descMatches[1]) ? $descMatches[1] : '',
+                'title' => ucfirst($filename),  // Default title
+                'description' => '',
                 'url' => $this->router->getUrl($filename === 'home' ? '' : $filename),
                 'active' => $this->currentPage === $filename
             ];
@@ -54,6 +42,21 @@ class MenuHandler {
             if (defined('DEBUG_MODE') && DEBUG_MODE) {
                 error_log("[MenuHandler] Added page: " . $filename);
             }
+        }
+    }
+    
+    private function updatePageConfig($filename) {
+        if (!isset($this->pages[$filename])) {
+            return;
+        }
+
+        $config = $this->router->getPageConfig($filename);
+        if ($config) {
+            $this->pages[$filename]['title'] = isset($config['menu_title']) ? $config['menu_title'] : 
+                (isset($config['page_title']) ? $config['page_title'] : 
+                (isset($config['meta_title']) ? $config['meta_title'] : $this->pages[$filename]['title']));
+            
+            $this->pages[$filename]['description'] = isset($config['meta_description']) ? $config['meta_description'] : '';
         }
     }
     
@@ -90,28 +93,30 @@ class MenuHandler {
         $items = $this->pages;
         $orderedItems = [];
         
-        // Get menu_order from each page's config
+        // Get menu_order and menu_title from each page's config
         foreach ($items as $page => $data) {
-            $pageFile = $this->router->getProjectRoot() . '/pages/' . $page . '.php';
-            if (file_exists($pageFile)) {
-                $content = file_get_contents($pageFile);
-                if (preg_match("/menu_order'\s*=>\s*(\d+)/", $content, $matches)) {
-                    // Only include items with menu_order less than 10 (main menu items)
-                    $order = (int)$matches[1];
-                    if ($order < 10) {
-                        $orderedItems[$page] = $order;
-                    }
-                }
+            // Update page config before rendering
+            $this->updatePageConfig($page);
+            $config = $this->router->getPageConfig($page);
+            
+            // Only include items that have menu_order set and less than 10 (main menu items)
+            if (isset($config['menu_order']) && $config['menu_order'] < 10) {
+                $orderedItems[$page] = [
+                    'order' => $config['menu_order'],
+                    'title' => isset($config['menu_title']) ? $config['menu_title'] : $data['title']
+                ];
             }
         }
         
         // Sort by menu_order
-        asort($orderedItems);
+        uasort($orderedItems, function($a, $b) {
+            return $a['order'] - $b['order'];
+        });
         
         $output = '';
         
         // Render menu items in order
-        foreach ($orderedItems as $page => $order) {
+        foreach ($orderedItems as $page => $menuData) {
             if (isset($items[$page])) {
                 $data = $items[$page];
                 $activeClass = $data['active'] ? ' active' : '';
@@ -119,7 +124,7 @@ class MenuHandler {
                     '<li><a href="%s" class="%s" data-btn-animate="y">%s</a></li>',
                     $data['url'],
                     $activeClass,
-                    $data['title']
+                    $menuData['title']  // Use menu_title from config if available
                 );
             }
         }
