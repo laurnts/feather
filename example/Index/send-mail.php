@@ -7,16 +7,38 @@ if (!defined('DEBUG_MODE')) {
     define('DEBUG_MODE', true);
 }
 
+// Set shorter timeout for SMTP operations
+define('SMTP_TIMEOUT', 10); // 10 seconds max for SMTP operations
+
 // Configure error logging
 ini_set('log_errors', 1);
 ini_set('error_log', __DIR__ . '/var/debug.log');
+error_reporting(E_ALL);
 
-// Prevent PHP errors/warnings from being displayed in AJAX responses
-if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && 
-    strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
-    ini_set('display_errors', 0);
-    error_reporting(E_ALL);
-}
+// Set execution time limit to prevent hanging
+set_time_limit(15); // Shorter timeout
+
+// Log request information for debugging
+$timestamp = date('Y-m-d H:i:s');
+error_log("[$timestamp] === NEW REQUEST TO send-mail.php ===");
+error_log("[$timestamp] Request Method: " . $_SERVER['REQUEST_METHOD']);
+error_log("[$timestamp] Content Type: " . (isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : 'not set'));
+error_log("[$timestamp] Request Headers: " . json_encode(getallheaders()));
+
+// Load raw POST data
+$raw_input = file_get_contents('php://input');
+error_log("[$timestamp] Raw input: " . substr($raw_input, 0, 200) . (strlen($raw_input) > 200 ? '...' : ''));
+
+// Log POST data
+error_log("[$timestamp] POST data: " . json_encode($_POST));
+
+// Log SERVER variables
+error_log("[$timestamp] Server variables: " . json_encode([
+    'REQUEST_URI' => $_SERVER['REQUEST_URI'],
+    'SCRIPT_NAME' => $_SERVER['SCRIPT_NAME'], 
+    'DOCUMENT_ROOT' => $_SERVER['DOCUMENT_ROOT'],
+    'SERVER_SOFTWARE' => $_SERVER['SERVER_SOFTWARE']
+]));
 
 // Start session for rate limiting
 if (!isset($_SESSION)) {
@@ -29,6 +51,42 @@ require_once __DIR__ . '/vendor/autoload.php';
 use Laurnts\Feather\Router\Router;
 use Laurnts\Feather\Mail\Smtp;
 use Laurnts\Feather\Mail\SmtpConfig;
+
+/**
+ * Function to verify SMTP credentials without sending an email
+ * @return array Result with success status and message
+ */
+function verifySmtpCredentials() {
+    try {
+        // Get SMTP config
+        $config = SmtpConfig::get();
+        
+        // Create PHPMailer instance without exceptions for connection test
+        $mailer = new \PHPMailer\PHPMailer\PHPMailer(false);
+        $mailer->isSMTP();
+        $mailer->SMTPAuth = true;
+        $mailer->Host = $config['host'];
+        $mailer->Username = $config['username'];
+        $mailer->Password = $config['password'];
+        $mailer->SMTPSecure = $config['secure'];
+        $mailer->Port = $config['port'];
+        
+        // Set shorter timeout for connection test
+        $mailer->Timeout = 5;
+        
+        // Try to connect to SMTP server
+        $connected = $mailer->smtpConnect();
+        
+        if ($connected) {
+            $mailer->smtpClose();
+            return ['success' => true, 'message' => 'SMTP credentials are valid'];
+        }
+        
+        return ['success' => false, 'message' => 'Failed to connect to SMTP server'];
+    } catch (\Exception $e) {
+        return ['success' => false, 'message' => 'SMTP credential check error: ' . $e->getMessage()];
+    }
+}
 
 // Check if this is a direct browser visit (not an AJAX POST request)
 $is_direct_visit = !isset($_SERVER['HTTP_X_REQUESTED_WITH']) || 
@@ -153,72 +211,102 @@ Request URI: <?php echo $_SERVER['REQUEST_URI']; ?>
 
 try {
     // Initialize router
+    error_log("[$timestamp] Initializing Router...");
     $router = new Router(__DIR__);
     
     // Set up SMTP with router
+    error_log("[$timestamp] Setting up SMTP with Router...");
     Smtp::setRouter($router);
     SmtpConfig::setRouter($router);
     
-    // Log request received with POST data
-    if (defined('DEBUG_MODE') && DEBUG_MODE) {
-        error_log("[send-mail.php] Form submission received with data: " . 
-            json_encode([
-                'method' => $_SERVER['REQUEST_METHOD'],
-                'content_type' => $_SERVER['CONTENT_TYPE'] ?? 'not set',
-                'has_post_data' => !empty($_POST),
-                'post_data_keys' => array_keys($_POST),
-                'has_userName' => isset($_POST['userName']),
-                'has_userEmail' => isset($_POST['userEmail']),
-                'has_userMessage' => isset($_POST['userMessage'])
-            ])
-        );
+    // If data was sent as JSON, parse it and merge with $_POST
+    $content_type = isset($_SERVER['CONTENT_TYPE']) ? $_SERVER['CONTENT_TYPE'] : '';
+    if (strpos($content_type, 'application/json') !== false) {
+        $json_data = json_decode($raw_input, true);
+        if ($json_data) {
+            $_POST = array_merge($_POST, $json_data);
+            error_log("[$timestamp] Merged JSON data with POST: " . json_encode($_POST));
+        }
     }
     
-    // Check required fields manually
-    if (!isset($_POST["userName"]) || !isset($_POST["userEmail"]) || !isset($_POST["userMessage"])) {
-        error_log("[send-mail.php] ERROR: Missing required fields");
-        header('Content-Type: application/json');
-        echo json_encode([
-            'type' => 'error',
-            'text' => 'All fields are required'
-        ]);
-        exit;
+    // Log processed POST data
+    error_log("[$timestamp] Final POST data: " . json_encode($_POST));
+    
+    // Check required fields
+    if (empty($_POST["userName"]) || empty($_POST["userEmail"]) || empty($_POST["userMessage"])) {
+        error_log("[$timestamp] Missing required fields");
+        error_log("[$timestamp] userName: " . (isset($_POST["userName"]) ? 'set' : 'not set'));
+        error_log("[$timestamp] userEmail: " . (isset($_POST["userEmail"]) ? 'set' : 'not set'));
+        error_log("[$timestamp] userMessage: " . (isset($_POST["userMessage"]) ? 'set' : 'not set'));
+        
+        throw new Exception('All fields are required');
     }
     
-    // Process mail directly
-    $smtp = new Smtp();
-    $smtp->send(
+    // Log the message to a backup file in case SMTP fails
+    $backup_log = __DIR__ . '/var/contact_messages.log';
+    $message_log = sprintf(
+        "[%s] From: %s <%s>\nMessage: %s\n\n",
+        $timestamp,
         $_POST["userName"],
         $_POST["userEmail"],
         $_POST["userMessage"]
     );
+    file_put_contents($backup_log, $message_log, FILE_APPEND);
+    error_log("[$timestamp] Message logged to backup file");
     
-    // Return success response
+    // Verify SMTP credentials first
+    error_log("[$timestamp] Verifying SMTP credentials...");
+    $credential_check = verifySmtpCredentials();
+    error_log("[$timestamp] Credential check result: " . json_encode($credential_check));
+    
+    // Process mail with timeout protection
+    if ($credential_check['success']) {
+        error_log("[$timestamp] Credentials valid. Attempting to send email...");
+        
+        try {
+            // Set an alarm for timeout
+            set_time_limit(SMTP_TIMEOUT);
+            
+            // Try to send email
+            $smtp = new Smtp();
+            $start_time = microtime(true);
+            
+            $result = $smtp->send(
+                $_POST["userName"],
+                $_POST["userEmail"],
+                $_POST["userMessage"]
+            );
+            
+            $execution_time = microtime(true) - $start_time;
+            error_log("[$timestamp] Email sent successfully in " . round($execution_time, 2) . " seconds");
+        } catch (\Exception $mail_exception) {
+            error_log("[$timestamp] SMTP Error: " . $mail_exception->getMessage());
+            error_log("[$timestamp] Using fallback: Email details logged to file");
+        }
+    } else {
+        error_log("[$timestamp] Invalid SMTP credentials or connection issues. Using log file only.");
+    }
+    
+    // Return success response (even if SMTP failed, we logged the message)
+    error_log("[$timestamp] Sending success response...");
     header('Content-Type: application/json');
     echo json_encode([
         'type' => 'message',
         'text' => 'Thank you for your message! We will get back to you soon.'
     ]);
-    exit;
+    
 } catch (\Exception $e) {
-    error_log("[send-mail.php] ERROR: " . $e->getMessage());
-    
-    // Get exception details for debugging
-    $error_details = [
-        'message' => $e->getMessage(),
-        'file' => $e->getFile(),
-        'line' => $e->getLine(),
-        'trace' => DEBUG_MODE ? $e->getTraceAsString() : 'hidden in production'
-    ];
-    
-    error_log("[send-mail.php] Exception details: " . json_encode($error_details));
+    error_log("[$timestamp] ERROR: " . $e->getMessage());
+    error_log("[$timestamp] Stack trace: " . $e->getTraceAsString());
     
     // Return error as JSON
     header('Content-Type: application/json');
     echo json_encode([
         'type' => 'error',
-        'text' => $e->getMessage(),
-        'details' => DEBUG_MODE ? $error_details : null
+        'text' => $e->getMessage()
     ]);
-    exit;
 } 
+
+// Force completion of request
+error_log("[$timestamp] Completing request...");
+ob_end_flush(); 
