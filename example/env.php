@@ -5,7 +5,7 @@ return [
         'host' => 'smtp.gmail.com',
         'username' => 'example@gmail.com',
         'password' => '',
-        'secure' => 'ssl',
-        'port' => 465
+        'secure' => 'ssl', #tls / ssl
+        'port' => 465 #587 / 465
     ]
 ];
